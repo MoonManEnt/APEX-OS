@@ -1,6 +1,4 @@
 {
-  "installCommand": "pnpm install",
-  "buildCommand": "pnpm --filter @apex/web build",
-  "outputDirectory": "apps/web/.next",
-  "framework": "nextjs"
+  "installCommand": "cd ../.. && pnpm install",
+  "buildCommand": "cd ../.. && pnpm --filter @apex/web build"
 }
