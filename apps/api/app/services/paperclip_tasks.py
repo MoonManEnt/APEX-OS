@@ -1,5 +1,4 @@
 import json
-import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,10 +9,11 @@ from app.models.paperclip_tasks import (
     PaperclipTaskCreateRequest,
     PaperclipTaskListResponse,
 )
+from app.core.settings import settings
 from app.services.audit import record_audit
 
 
-WORKSPACE_ROOT = Path(os.environ.get('WORKSPACE_ROOT', str(Path(__file__).resolve().parents[2])))
+WORKSPACE_ROOT = Path(settings.workspace_root)
 PAPERCLIP_DIR = WORKSPACE_ROOT / 'vpg_paperclip'
 TASKS_PATH = PAPERCLIP_DIR / 'APEX_Paperclip_Tasks.json'
 PAPERCLIP_CONFIG = PAPERCLIP_DIR / 'company_package' / '.paperclip.yaml'

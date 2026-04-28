@@ -1,12 +1,12 @@
 import json
-import os
 from pathlib import Path
 from typing import Iterable
 
+from app.core.settings import settings
 from app.models.paperclip import PaperclipContextItem, PaperclipContextResponse, PaperclipSyncEntry
 
 
-WORKSPACE_ROOT = Path(os.environ.get('WORKSPACE_ROOT', str(Path(__file__).resolve().parents[2])))
+WORKSPACE_ROOT = Path(settings.workspace_root)
 PAPERCLIP_DIR = WORKSPACE_ROOT / 'vpg_paperclip'
 SYNC_LOG_PATH = PAPERCLIP_DIR / 'APEX_Live_Sync_Log.json'
 CONTEXT_FILES = [

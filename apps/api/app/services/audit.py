@@ -1,14 +1,14 @@
 import json
-import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from app.core.settings import settings
 from app.models.audit import AuditEntry, AuditListResponse
 
 
-WORKSPACE_ROOT = Path(os.environ.get('WORKSPACE_ROOT', str(Path(__file__).resolve().parents[2])))
+WORKSPACE_ROOT = Path(settings.workspace_root)
 AUDIT_PATH = WORKSPACE_ROOT / 'vpg_paperclip' / 'APEX_Audit_Log.json'
 
 

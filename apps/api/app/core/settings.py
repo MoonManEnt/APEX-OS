@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEFAULT_WORKSPACE_ROOT = str(Path(__file__).resolve().parents[2])
 
 
 class Settings(BaseSettings):
@@ -9,6 +13,7 @@ class Settings(BaseSettings):
     session_secret: str = 'change-me-in-production'
     default_operator_name: str = 'Reginald'
     default_operator_role: str = 'principal_operator'
+    workspace_root: str = _DEFAULT_WORKSPACE_ROOT
 
     model_config = SettingsConfigDict(
         env_file='.env',
