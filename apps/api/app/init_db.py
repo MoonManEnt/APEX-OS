@@ -6,8 +6,8 @@ from sqlalchemy import text
 from app.core.db import engine
 
 
-SCHEMA_PATH = Path(__file__).resolve().parents[3] / 'packages' / 'db' / 'schema' / 'phase1_schema.sql'
-SEED_PATH = Path(__file__).resolve().parents[3] / 'packages' / 'db' / 'seeds' / 'brands.sql'
+SCHEMA_PATH = Path(__file__).resolve().parents[1] / 'db' / 'schema' / 'phase1_schema.sql'
+SEED_PATH = Path(__file__).resolve().parents[1] / 'db' / 'seeds' / 'brands.sql'
 
 
 async def init_db() -> None:
