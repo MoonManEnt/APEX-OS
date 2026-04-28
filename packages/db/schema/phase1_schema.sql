@@ -217,6 +217,6 @@ create index if not exists idx_events_event_type on events(event_type);
 create index if not exists idx_events_created_at on events(created_at desc);
 create index if not exists idx_events_brand_relevance on events using gin (brand_relevance);
 create index if not exists idx_events_badges on events using gin (badges);
-create index if not exists idx_properties_coordinates on properties using gist (coordinates);
+create index if not exists idx_properties_coordinates on properties using gin (coordinates);
 create index if not exists idx_properties_current_vendors on properties using gin (current_vendors);
 create index if not exists idx_properties_deed_history on properties using gin (deed_history);
