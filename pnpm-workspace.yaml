@@ -1,0 +1,5 @@
+packages:
+  - "apps/web"
+  - "apps/web-nuxt"
+  - "packages/config"
+  - "packages/types"

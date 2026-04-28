@@ -1,0 +1,23 @@
+{
+  "name": "apex-os",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "dev:web": "node scripts/start-web-dev.mjs",
+    "dev:web-nuxt": "pnpm --dir apps/web-nuxt dev",
+    "dev:api": "bash scripts/start-api-dev.sh",
+    "preview:web": "bash scripts/start-preview-tunnel.sh",
+    "healthcheck": "bash scripts/healthcheck.sh",
+    "beta:validate": "bash scripts/beta-validation.sh",
+    "build": "pnpm --parallel -r build",
+    "build:web-nuxt": "pnpm --dir apps/web-nuxt build",
+    "lint": "pnpm --parallel -r lint",
+    "type-check": "pnpm --parallel -r type-check",
+    "type-check:web-nuxt": "pnpm --dir apps/web-nuxt typecheck"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}
