@@ -1,7 +1,6 @@
 -- APEX OS Phase 1 foundational schema
 -- WS-1: ingest → classify → persist
 
-create extension if not exists postgis;
 create extension if not exists pgcrypto;
 
 create type brand_enum as enum (
@@ -94,7 +93,7 @@ create table if not exists properties (
   city text,
   state text,
   postal_code text,
-  coordinates geography(point, 4326),
+  coordinates jsonb,
   current_vendors jsonb not null default '[]'::jsonb,
   deed_history jsonb not null default '[]'::jsonb,
   warm_path_brokers text[] not null default '{}',
