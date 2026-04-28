@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -7,7 +8,7 @@ from typing import Optional
 from app.models.audit import AuditEntry, AuditListResponse
 
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
+WORKSPACE_ROOT = Path(os.environ.get('WORKSPACE_ROOT', str(Path(__file__).resolve().parents[2])))
 AUDIT_PATH = WORKSPACE_ROOT / 'vpg_paperclip' / 'APEX_Audit_Log.json'
 
 
@@ -18,6 +19,7 @@ def _now() -> str:
 def _ensure_store() -> None:
     if AUDIT_PATH.exists():
         return
+    AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
     AUDIT_PATH.write_text(json.dumps({'items': []}, indent=2), encoding='utf-8')
 
 

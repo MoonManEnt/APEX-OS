@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,7 +13,7 @@ from app.models.paperclip_tasks import (
 from app.services.audit import record_audit
 
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[5]
+WORKSPACE_ROOT = Path(os.environ.get('WORKSPACE_ROOT', str(Path(__file__).resolve().parents[2])))
 PAPERCLIP_DIR = WORKSPACE_ROOT / 'vpg_paperclip'
 TASKS_PATH = PAPERCLIP_DIR / 'APEX_Paperclip_Tasks.json'
 PAPERCLIP_CONFIG = PAPERCLIP_DIR / 'company_package' / '.paperclip.yaml'
@@ -36,6 +37,7 @@ def _now() -> str:
 def _ensure_store() -> None:
     if TASKS_PATH.exists():
         return
+    TASKS_PATH.parent.mkdir(parents=True, exist_ok=True)
     TASKS_PATH.write_text(json.dumps({'items': []}, indent=2), encoding='utf-8')
 
 
