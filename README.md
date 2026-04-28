@@ -53,6 +53,7 @@ See these beta docs for launch and usage:
 - `docs/specs/operator-beta-instructions.md`
 - `docs/specs/internal-beta-launch-checklist.md`
 - `docs/specs/github-vercel-migration.md`
+- `docs/specs/railway-backend-deploy.md`
 
 ## Nuxt Replatform Track
 

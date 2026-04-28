@@ -17,6 +17,9 @@ So the right migration shape is:
 4. deploy `apps/api` to a backend host such as Railway, Render, or Fly
 5. point Vercel frontend env vars at the live API base URL
 
+See also:
+- `docs/specs/railway-backend-deploy.md`
+
 ## Current packaging issue
 
 `apex_app` was living inside the larger OpenClaw workspace repository.
@@ -109,3 +112,8 @@ Proceed in this order:
 3. backend host selection + API deployment
 4. final env wiring
 5. `pnpm beta:validate` against the live deployed API/frontend pair
+
+Current status:
+- GitHub repo created and pushed
+- Vercel frontend project created and linked
+- Railway backend deploy assets prepared in-repo
