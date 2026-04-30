@@ -28,3 +28,6 @@ apps/api/**/__pycache__/
 # macOS
 .DS_Store
 .vercel
+
+# git worktrees
+.worktrees/
