@@ -1,3 +1,4 @@
+import { EventModal } from './event-modal';
 import { LiveFeedStatus } from './live-feed-status';
 import { PwaInstallCta } from './pwa-install-cta';
 
@@ -606,6 +607,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     draftStatus: resolved.draftStatus,
     contact: resolved.contact ?? CONTACTS[0].id,
   };
+  const closeHref = buildHref(filters, { selected: undefined });
 
   const operatorSession = await getCurrentSession();
   const operatorName = operatorSession?.operator_name ?? 'Reginald';
@@ -1135,6 +1137,19 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 {renderAuditPanel()}
               </div>
             </div>
+            {filters.selected && selectedEvent ? (
+              <EventModal
+                event={selectedEvent}
+                eventDetail={selectedEventDetail}
+                draft={liveDraft}
+                draftHistory={draftHistory}
+                operatorName={operatorName}
+                operatorRole={operatorRole}
+                permissions={operatorPermissions}
+                closeHref={closeHref}
+                draftType={filters.draftType ?? 'primary_outreach'}
+              />
+            ) : null}
           </div>
         );
       case 'account':
