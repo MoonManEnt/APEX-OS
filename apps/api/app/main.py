@@ -11,6 +11,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db_session
@@ -30,6 +31,15 @@ from app.repositories.actions import get_action_review_queue as get_action_revie
 from app.repositories.actions import persist_action_draft
 from app.repositories.events import get_event as get_event_repository
 from app.repositories.events import list_events as list_events_repository
+from app.models.properties import PropertyCreateRequest, PropertyDetail, PropertyListItem, PropertyUpdateRequest
+from app.repositories.properties import (
+    check_duplicate as check_property_duplicate,
+    create_property as create_property_repository,
+    delete_property as delete_property_repository,
+    get_property as get_property_repository,
+    list_properties as list_properties_repository,
+    update_property as update_property_repository,
+)
 from app.services.actions import generate_action_draft
 from app.services.bootstrap import ingest_google_news_cre, seed_sample_event
 from app.services.feed import feed_manager
@@ -489,3 +499,61 @@ async def feed_socket(websocket: WebSocket) -> None:
             await websocket.receive_text()
     except WebSocketDisconnect:
         feed_manager.disconnect(websocket)
+
+
+@app.get('/properties', response_model=list[PropertyListItem])
+async def list_properties(
+    brand: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[PropertyListItem]:
+    return await list_properties_repository(session, brand=brand, search=search)
+
+
+@app.get('/properties/{property_id}', response_model=PropertyDetail)
+async def get_property(
+    property_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> PropertyDetail:
+    prop = await get_property_repository(session, property_id)
+    if prop is None:
+        raise HTTPException(status_code=404, detail='Property not found')
+    return prop
+
+
+@app.post('/properties', response_model=PropertyListItem)
+async def create_property(
+    req: PropertyCreateRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> PropertyListItem:
+    existing_id = await check_property_duplicate(session, req.name, req.market)
+    if existing_id:
+        return JSONResponse(
+            status_code=409,
+            content={'message': 'Property already exists', 'existing_id': existing_id},
+        )
+    return await create_property_repository(session, req)
+
+
+@app.patch('/properties/{property_id}', response_model=PropertyDetail)
+async def patch_property(
+    property_id: str,
+    req: PropertyUpdateRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> PropertyDetail:
+    updated = await update_property_repository(session, property_id, req)
+    if updated is None:
+        raise HTTPException(status_code=404, detail='Property not found')
+    return updated
+
+
+@app.delete('/properties/{property_id}', status_code=204)
+async def delete_property(
+    property_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    result = await delete_property_repository(session, property_id)
+    if result == 'not_found':
+        raise HTTPException(status_code=404, detail='Property not found')
+    if result == 'auto':
+        raise HTTPException(status_code=403, detail='Cannot delete auto-created property')
