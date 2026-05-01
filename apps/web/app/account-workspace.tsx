@@ -63,13 +63,6 @@ function scoreColor(score: number | null): string {
   return '#374151'
 }
 
-function formatNoi(cents: number | null): string {
-  if (cents === null) return '—'
-  const dollars = Math.round(cents / 100)
-  if (dollars >= 1_000_000) return `$${(dollars / 1_000_000).toFixed(1)}M/yr`
-  if (dollars >= 1_000) return `$${(dollars / 1_000).toFixed(0)}K/yr`
-  return `$${dollars}/yr`
-}
 
 function buildHref(params: Record<string, string | undefined>): string {
   const sp = new URLSearchParams()
@@ -77,6 +70,18 @@ function buildHref(params: Record<string, string | undefined>): string {
     if (v !== undefined) sp.set(k, v)
   }
   return `?${sp.toString()}`
+}
+
+const NAV_BRANDS = ['all', 'scout_security', 'partners_cc', 'clean_scapes', 'ecs_texas', 'revival_restoration']
+
+const pill: React.CSSProperties = {
+  display: 'inline-block',
+  padding: '0.2rem 0.6rem',
+  borderRadius: 999,
+  fontSize: '0.72rem',
+  fontWeight: 700,
+  cursor: 'pointer',
+  textDecoration: 'none',
 }
 
 export function AccountWorkspace({
@@ -99,6 +104,8 @@ export function AccountWorkspace({
     const propertyId = formData.get('property_id') as string
     const field = formData.get('field') as string
     const value = formData.get('value') as string
+    const ALLOWED_FIELDS = new Set(['market', 'building_type', 'sqft', 'noi_cents', 'notes'])
+    if (!ALLOWED_FIELDS.has(field)) return
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000'
     const body: Record<string, unknown> = {}
     if (field === 'noi_cents') {
@@ -109,11 +116,12 @@ export function AccountWorkspace({
     } else {
       body[field] = value || null
     }
-    await fetch(`${baseUrl}/properties/${propertyId}`, {
+    const res = await fetch(`${baseUrl}/properties/${propertyId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
+    if (!res.ok) throw new Error(`PATCH failed: ${res.status}`)
     revalidatePath('/')
   }
 
@@ -121,20 +129,9 @@ export function AccountWorkspace({
     'use server'
     const propertyId = formData.get('property_id') as string
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000'
-    await fetch(`${baseUrl}/properties/${propertyId}`, { method: 'DELETE' })
+    const res = await fetch(`${baseUrl}/properties/${propertyId}`, { method: 'DELETE' })
+    if (!res.ok && res.status !== 404) throw new Error(`DELETE failed: ${res.status}`)
     revalidatePath('/')
-  }
-
-  const NAV_BRANDS = ['all', 'scout_security', 'partners_cc', 'clean_scapes', 'ecs_texas', 'revival_restoration']
-
-  const pill: React.CSSProperties = {
-    display: 'inline-block',
-    padding: '0.2rem 0.6rem',
-    borderRadius: 999,
-    fontSize: '0.72rem',
-    fontWeight: 700,
-    cursor: 'pointer',
-    textDecoration: 'none',
   }
 
   return (
@@ -408,6 +405,8 @@ export function AccountWorkspace({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {selectedProperty.linked_signals.map((signal) => {
                 const brandColor = signal.primary_brand ? (BRAND_COLORS[signal.primary_brand] ?? '#6b7280') : '#6b7280'
+                const sigColor = scoreColor(signal.confidence_score)
+                const sigBg = sigColor === '#991b1b' ? '#fef2f2' : sigColor === '#92400e' ? '#fff7ed' : '#f9fafb'
                 return (
                   <div
                     key={signal.id}
@@ -415,7 +414,7 @@ export function AccountWorkspace({
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.25rem' }}>
                       <div style={{ fontWeight: 700, fontSize: '0.84rem', flex: 1, paddingRight: '0.5rem' }}>{signal.title}</div>
-                      <span style={{ ...pill, background: scoreColor(signal.confidence_score) === '#991b1b' ? '#fef2f2' : scoreColor(signal.confidence_score) === '#92400e' ? '#fff7ed' : '#f9fafb', color: scoreColor(signal.confidence_score), fontSize: '0.72rem', flexShrink: 0 }}>
+                      <span style={{ ...pill, background: sigBg, color: sigColor, fontSize: '0.72rem', flexShrink: 0 }}>
                         {Math.round(signal.confidence_score)}
                       </span>
                     </div>
@@ -424,7 +423,7 @@ export function AccountWorkspace({
                         {[signal.primary_brand ? (BRAND_LABELS[signal.primary_brand] ?? signal.primary_brand) : null, signal.market].filter(Boolean).join(' · ')}
                       </div>
                       <a
-                        href={`?surface=newsroom&selected=${signal.id}`}
+                        href={buildHref({ surface: 'newsroom', selected: signal.id })}
                         style={{ ...pill, background: '#185FA5', color: '#fff', fontSize: '0.72rem', padding: '0.2rem 0.55rem' }}
                       >
                         Open draft →
