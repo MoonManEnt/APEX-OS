@@ -278,10 +278,11 @@ async def comment_paperclip_task(
 @app.post('/actions/draft')
 async def draft_action(
     request: ActionDraftRequest,
+    force: bool = Query(default=False),
     session: AsyncSession = Depends(get_db_session),
 ) -> dict:
     existing = await get_action_draft_repository(session, request.event_id, draft_type=request.draft_type)
-    if existing is not None:
+    if existing is not None and not force:
         record_audit(
             actor='apex-system',
             entity_type='draft_action',
