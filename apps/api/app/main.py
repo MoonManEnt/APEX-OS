@@ -7,6 +7,7 @@
 # TODO(WS-2): Add WebSocket /ws endpoint for feed.publish push
 
 import os
+import uuid
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -24,6 +25,7 @@ from app.models.paperclip_tasks import (
     PaperclipTaskCreateRequest,
     PaperclipTaskStatusRequest,
 )
+from app.models.properties import PropertyCreateRequest, PropertyDetail, PropertyListItem, PropertyUpdateRequest
 from app.models.session import OperatorSession
 from app.repositories.actions import get_action_draft as get_action_draft_repository
 from app.repositories.actions import get_action_draft_history as get_action_draft_history_repository
@@ -31,7 +33,6 @@ from app.repositories.actions import get_action_review_queue as get_action_revie
 from app.repositories.actions import persist_action_draft
 from app.repositories.events import get_event as get_event_repository
 from app.repositories.events import list_events as list_events_repository
-from app.models.properties import PropertyCreateRequest, PropertyDetail, PropertyListItem, PropertyUpdateRequest
 from app.repositories.properties import (
     check_duplicate as check_property_duplicate,
     create_property as create_property_repository,
@@ -512,10 +513,10 @@ async def list_properties(
 
 @app.get('/properties/{property_id}', response_model=PropertyDetail)
 async def get_property(
-    property_id: str,
+    property_id: uuid.UUID,
     session: AsyncSession = Depends(get_db_session),
 ) -> PropertyDetail:
-    prop = await get_property_repository(session, property_id)
+    prop = await get_property_repository(session, str(property_id))
     if prop is None:
         raise HTTPException(status_code=404, detail='Property not found')
     return prop
@@ -537,11 +538,11 @@ async def create_property(
 
 @app.patch('/properties/{property_id}', response_model=PropertyDetail)
 async def patch_property(
-    property_id: str,
+    property_id: uuid.UUID,
     req: PropertyUpdateRequest,
     session: AsyncSession = Depends(get_db_session),
 ) -> PropertyDetail:
-    updated = await update_property_repository(session, property_id, req)
+    updated = await update_property_repository(session, str(property_id), req)
     if updated is None:
         raise HTTPException(status_code=404, detail='Property not found')
     return updated
