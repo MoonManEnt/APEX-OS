@@ -173,8 +173,8 @@ async def create_property(
             'brands': req.brands,
         },
     )
-    await session.commit()
     row = result.mappings().first()
+    await session.commit()
     return PropertyListItem(score=None, signal_count=0, **row)
 
 
