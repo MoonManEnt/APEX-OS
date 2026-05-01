@@ -33,6 +33,9 @@ async def init_db() -> None:
     seed_sql = SEED_PATH.read_text()
     migration_sql = MIGRATION_PATH.read_text()
 
+    # SQL files are split on ';' — do NOT use PL/pgSQL, dollar-quoted strings,
+    # or multi-statement blocks in schema/migration files; each statement must
+    # end with a single ';' and contain no embedded semicolons.
     async with engine.begin() as conn:
         if not await _schema_exists(conn):
             for statement in [s.strip() for s in schema_sql.split(';') if s.strip()]:
