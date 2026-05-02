@@ -15,6 +15,16 @@ const BUILDING_TYPE_LABELS: Record<string, string> = {
   other: 'Other',
 }
 
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid #d1d5db',
+  borderRadius: 6,
+  padding: '0.5rem 0.7rem',
+  fontSize: '0.84rem',
+  outline: 'none',
+  boxSizing: 'border-box',
+}
+
 export function AccountAddForm({ cancelHref, surface, brand }: { cancelHref: string; surface: string; brand: string }) {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -29,40 +39,41 @@ export function AccountAddForm({ cancelHref, surface, brand }: { cancelHref: str
     setLoading(true)
     setError(null)
     const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000'
-    const resp = await fetch(`${baseUrl}/properties`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: name.trim(),
-        market: market.trim() || null,
-        building_type: buildingType,
-        brands: brand !== 'all' ? [brand] : [],
-      }),
-    })
-    setLoading(false)
-    if (!resp.ok) {
-      if (resp.status === 409) {
-        const body = await resp.json()
-        const existingId = body?.detail?.existing_id ?? body?.existing_id
-        router.push(`?surface=${surface}&brand=${brand}&account=${existingId}`)
+    try {
+      const resp = await fetch(`${baseUrl}/properties`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          market: market.trim() || null,
+          building_type: buildingType,
+          brands: brand !== 'all' ? [brand] : [],
+        }),
+      })
+      setLoading(false)
+      if (!resp.ok) {
+        if (resp.status === 409) {
+          const body = await resp.json()
+          const existingId = body?.detail?.existing_id ?? body?.existing_id
+          if (!existingId) {
+            setError('Duplicate found but ID missing. Refresh and try again.')
+            return
+          }
+          const params = new URLSearchParams({ surface, brand, account: existingId })
+          router.push(`?${params.toString()}`)
+          return
+        }
+        setError('Failed to create property. Try again.')
         return
       }
-      setError('Failed to create property. Try again.')
-      return
+      const created = await resp.json()
+      const params = new URLSearchParams({ surface, brand, account: created.id })
+      router.push(`?${params.toString()}`)
+      router.refresh()
+    } catch {
+      setLoading(false)
+      setError('Network error. Check your connection and try again.')
     }
-    const created = await resp.json()
-    router.push(`?surface=${surface}&brand=${brand}&account=${created.id}`)
-    router.refresh()
-  }
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    border: '1px solid #d1d5db',
-    borderRadius: 6,
-    padding: '0.5rem 0.7rem',
-    fontSize: '0.84rem',
-    outline: 'none',
-    boxSizing: 'border-box',
   }
 
   return (
@@ -70,8 +81,9 @@ export function AccountAddForm({ cancelHref, surface, brand }: { cancelHref: str
       <h3 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: 700 }}>Add account</h3>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
         <div>
-          <label style={{ fontSize: '0.74rem', color: '#6b7280', display: 'block', marginBottom: '0.2rem' }}>Property name *</label>
+          <label htmlFor="prop-name" style={{ fontSize: '0.74rem', color: '#6b7280', display: 'block', marginBottom: '0.2rem' }}>Property name *</label>
           <input
+            id="prop-name"
             style={inputStyle}
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -80,8 +92,9 @@ export function AccountAddForm({ cancelHref, surface, brand }: { cancelHref: str
           />
         </div>
         <div>
-          <label style={{ fontSize: '0.74rem', color: '#6b7280', display: 'block', marginBottom: '0.2rem' }}>Market</label>
+          <label htmlFor="prop-market" style={{ fontSize: '0.74rem', color: '#6b7280', display: 'block', marginBottom: '0.2rem' }}>Market</label>
           <input
+            id="prop-market"
             style={inputStyle}
             value={market}
             onChange={(e) => setMarket(e.target.value)}
@@ -89,8 +102,9 @@ export function AccountAddForm({ cancelHref, surface, brand }: { cancelHref: str
           />
         </div>
         <div>
-          <label style={{ fontSize: '0.74rem', color: '#6b7280', display: 'block', marginBottom: '0.2rem' }}>Property type</label>
+          <label htmlFor="prop-building-type" style={{ fontSize: '0.74rem', color: '#6b7280', display: 'block', marginBottom: '0.2rem' }}>Property type</label>
           <select
+            id="prop-building-type"
             style={inputStyle}
             value={buildingType}
             onChange={(e) => setBuildingType(e.target.value)}
