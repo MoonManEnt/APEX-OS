@@ -538,7 +538,8 @@ async function getProperties(opts: { brand?: string; search?: string; sort?: str
   try {
     const resp = await fetch(`${baseUrl}/properties?${params}`, { cache: 'no-store' });
     if (!resp.ok) return [];
-    return resp.json();
+    const data = await resp.json();
+    return Array.isArray(data) ? (data as PropertyItem[]) : [];
   } catch {
     return [];
   }
@@ -549,7 +550,7 @@ async function getPropertyDetail(propertyId: string): Promise<PropertyDetail | n
   try {
     const resp = await fetch(`${baseUrl}/properties/${propertyId}`, { cache: 'no-store' });
     if (!resp.ok) return null;
-    return resp.json();
+    return (await resp.json()) as PropertyDetail;
   } catch {
     return null;
   }
@@ -662,14 +663,21 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const paperclipLanes = await getPaperclipLanes();
   const auditEntries = await getAudit(selectedEvent?.id);
   const isAccountSurface = filters.surface === 'account';
-  const properties = isAccountSurface
-    ? await getProperties({ brand: filters.brand, search: filters.accountSearch, sort: filters.accountSort })
-    : [];
-  const selectedProperty = isAccountSurface && filters.account && filters.account !== '__add__'
-    ? await getPropertyDetail(filters.account)
-    : isAccountSurface && properties.length > 0 && !filters.account
-    ? await getPropertyDetail(properties[0].id)
-    : null;
+  let properties: PropertyItem[] = [];
+  let selectedProperty: PropertyDetail | null = null;
+  if (isAccountSurface) {
+    if (filters.account && filters.account !== '__add__') {
+      [properties, selectedProperty] = await Promise.all([
+        getProperties({ brand: filters.brand, search: filters.accountSearch, sort: filters.accountSort }),
+        getPropertyDetail(filters.account),
+      ]);
+    } else {
+      properties = await getProperties({ brand: filters.brand, search: filters.accountSearch, sort: filters.accountSort });
+      if (properties.length > 0) {
+        selectedProperty = await getPropertyDetail(properties[0].id);
+      }
+    }
+  }
   const activeBrandMeta = BRAND_META[filters.brand] ?? BRAND_META.all;
   const navSections = Array.from(new Set(NAV_ITEMS.map((item) => item.section)));
   const visibleContacts = filters.brand === 'all' ? CONTACTS : CONTACTS.filter((contact) => contact.brands.includes(filters.brand));
