@@ -16,7 +16,15 @@ _VALID_BUILDING_TYPES = frozenset({
     'data_center', 'mixed_use', 'hospitality', 'medical', 'other',
 })
 
-LIST_PROPERTIES_SQL = text("""
+_SORT_CLAUSES = {
+    'score_desc': 'max(e.confidence_score) DESC NULLS LAST, p.created_at DESC',
+    'score_asc': 'max(e.confidence_score) ASC NULLS LAST, p.created_at DESC',
+    'signal_count': 'count(e.id) DESC, p.created_at DESC',
+    'market_asc': 'p.market ASC NULLS LAST, p.name ASC',
+    'name_asc': 'p.name ASC',
+}
+
+_LIST_PROPERTIES_SQL_TEMPLATE = """
     SELECT
         p.id::text,
         p.name,
@@ -26,7 +34,7 @@ LIST_PROPERTIES_SQL = text("""
         p.noi_cents,
         p.notes,
         p.source,
-        coalesce(p.brands, '{}') AS brands,
+        coalesce(p.brands, '{{}}') AS brands,
         max(e.confidence_score) AS score,
         count(e.id)::int AS signal_count,
         p.created_at::text,
@@ -37,10 +45,8 @@ LIST_PROPERTIES_SQL = text("""
         (cast(:brand AS text) IS NULL OR cast(:brand AS text) = ANY(p.brands))
         AND (cast(:search AS text) IS NULL OR lower(p.name) LIKE lower(cast(:search AS text)))
     GROUP BY p.id
-    ORDER BY
-        max(e.confidence_score) DESC NULLS LAST,
-        p.created_at DESC
-""")
+    ORDER BY {order_by}
+"""
 
 GET_PROPERTY_SQL = text("""
     SELECT
@@ -123,12 +129,13 @@ async def list_properties(
     *,
     brand: Optional[str] = None,
     search: Optional[str] = None,
+    sort: Optional[str] = None,
 ) -> list[PropertyListItem]:
     brand_param = None if not brand or brand == 'all' else brand
     search_param = f'%{search}%' if search else None
-    result = await session.execute(
-        LIST_PROPERTIES_SQL, {'brand': brand_param, 'search': search_param}
-    )
+    order_by = _SORT_CLAUSES.get(sort or 'score_desc', _SORT_CLAUSES['score_desc'])
+    sql = text(_LIST_PROPERTIES_SQL_TEMPLATE.format(order_by=order_by))
+    result = await session.execute(sql, {'brand': brand_param, 'search': search_param})
     return [PropertyListItem(**row) for row in result.mappings().all()]
 
 

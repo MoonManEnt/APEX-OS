@@ -78,7 +78,7 @@ async def test_duplicate_property_returns_409():
 
         second = await client.post('/properties', json=payload)
         assert second.status_code == 409
-        assert 'existing_id' in second.json()
+        assert 'existing_id' in second.json()['detail']
 
         # cleanup
         await client.delete(f'/properties/{prop_id}')

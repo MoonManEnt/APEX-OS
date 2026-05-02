@@ -12,7 +12,6 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db_session
@@ -506,9 +505,10 @@ async def feed_socket(websocket: WebSocket) -> None:
 async def list_properties(
     brand: Optional[str] = Query(default=None),
     search: Optional[str] = Query(default=None),
+    sort: Optional[str] = Query(default='score_desc'),
     session: AsyncSession = Depends(get_db_session),
 ) -> list[PropertyListItem]:
-    return await list_properties_repository(session, brand=brand, search=search)
+    return await list_properties_repository(session, brand=brand, search=search, sort=sort)
 
 
 @app.get('/properties/{property_id}', response_model=PropertyDetail)
@@ -529,9 +529,9 @@ async def create_property(
 ) -> PropertyListItem:
     existing_id = await check_property_duplicate(session, req.name, req.market)
     if existing_id:
-        return JSONResponse(
+        raise HTTPException(
             status_code=409,
-            content={'message': 'Property already exists', 'existing_id': existing_id},
+            detail={'message': 'Property already exists', 'existing_id': existing_id},
         )
     return await create_property_repository(session, req)
 

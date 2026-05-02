@@ -54,7 +54,7 @@ export function AccountAddForm({ cancelHref, surface, brand }: { cancelHref: str
       if (!resp.ok) {
         if (resp.status === 409) {
           const body = await resp.json()
-          const existingId = body?.detail?.existing_id ?? body?.existing_id
+          const existingId = body?.detail?.existing_id
           if (!existingId) {
             setError('Duplicate found but ID missing. Refresh and try again.')
             return
