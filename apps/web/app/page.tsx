@@ -1,3 +1,5 @@
+import { AccountAddForm } from './account-add-form';
+import { AccountWorkspace, type PropertyDetail, type PropertyItem } from './account-workspace';
 import { EventModal } from './event-modal';
 import { LiveFeedStatus } from './live-feed-status';
 import { PwaInstallCta } from './pwa-install-cta';
@@ -155,6 +157,9 @@ type HomePageProps = {
     draftStatus?: string;
     surface?: string;
     contact?: string;
+    account?: string;
+    accountSearch?: string;
+    accountSort?: string;
   }>;
 };
 
@@ -524,6 +529,31 @@ async function getAudit(eventId?: string): Promise<AuditEntry[]> {
   }
 }
 
+async function getProperties(opts: { brand?: string; search?: string; sort?: string }): Promise<PropertyItem[]> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+  const params = new URLSearchParams();
+  if (opts.brand && opts.brand !== 'all') params.set('brand', opts.brand);
+  if (opts.search) params.set('search', opts.search);
+  try {
+    const resp = await fetch(`${baseUrl}/properties?${params}`, { cache: 'no-store' });
+    if (!resp.ok) return [];
+    return resp.json();
+  } catch {
+    return [];
+  }
+}
+
+async function getPropertyDetail(propertyId: string): Promise<PropertyDetail | null> {
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+  try {
+    const resp = await fetch(`${baseUrl}/properties/${propertyId}`, { cache: 'no-store' });
+    if (!resp.ok) return null;
+    return resp.json();
+  } catch {
+    return null;
+  }
+}
+
 function buildHref(filters: Record<string, string | undefined>, patch: Record<string, string | undefined>): string {
   const next = { ...filters, ...patch };
   const params = new URLSearchParams();
@@ -606,6 +636,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     draftType: resolved.draftType,
     draftStatus: resolved.draftStatus,
     contact: resolved.contact ?? CONTACTS[0].id,
+    account: resolved.account,
+    accountSearch: resolved.accountSearch,
+    accountSort: resolved.accountSort ?? 'score_desc',
   };
   const closeHref = buildHref(filters, { selected: undefined });
 
@@ -627,6 +660,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const paperclipTasks = await getPaperclipTasks(selectedEvent?.id);
   const paperclipLanes = await getPaperclipLanes();
   const auditEntries = await getAudit(selectedEvent?.id);
+  const isAccountSurface = filters.surface === 'account';
+  const properties = isAccountSurface
+    ? await getProperties({ brand: filters.brand, search: filters.accountSearch, sort: filters.accountSort })
+    : [];
+  const selectedProperty = isAccountSurface && filters.account && filters.account !== '__add__'
+    ? await getPropertyDetail(filters.account)
+    : isAccountSurface && properties.length > 0 && !filters.account
+    ? await getPropertyDetail(properties[0].id)
+    : null;
   const activeBrandMeta = BRAND_META[filters.brand] ?? BRAND_META.all;
   const navSections = Array.from(new Set(NAV_ITEMS.map((item) => item.section)));
   const visibleContacts = filters.brand === 'all' ? CONTACTS : CONTACTS.filter((contact) => contact.brands.includes(filters.brand));
@@ -1153,46 +1195,24 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           </div>
         );
       case 'account':
+        if (filters.account === '__add__') {
+          return (
+            <AccountAddForm
+              cancelHref={buildHref(filters, { account: undefined })}
+              surface="account"
+              brand={filters.brand}
+            />
+          );
+        }
         return (
-          <div style={{ display: 'grid', gap: '1rem' }}>
-            <SectionHeader title={selectedEventDetail?.property_name ?? selectedEvent?.title ?? 'Account workspace'} subtitle="Property intelligence, relationship logic, and commercial opportunity in one place." actions={<><Button label="Mind map" /><Button label="Generate proposal" primary /></>} />
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-              {selectedEvent?.badges?.map((badge) => <Badge key={badge} label={badge} tone="amber" />)}
-              <Badge label={`APEX score ${selectedEvent?.relevance_score ?? 0}`} tone="red" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '1rem' }}>
-              <ShellCard>
-                <strong style={{ display: 'block', marginBottom: '0.6rem' }}>Property intelligence</strong>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem 1rem', fontSize: '0.82rem' }}>
-                  <div><div style={{ color: '#6b7280' }}>Property linkage</div><div style={{ fontWeight: 700 }}>{selectedEventDetail?.property_name ?? selectedEventDetail?.property_id ?? 'Unresolved'}</div></div>
-                  <div><div style={{ color: '#6b7280' }}>Account linkage</div><div style={{ fontWeight: 700 }}>{selectedEventDetail?.account_name ?? selectedEventDetail?.account_id ?? 'Unresolved'}</div></div>
-                  <div><div style={{ color: '#6b7280' }}>Market</div><div style={{ fontWeight: 700 }}>{selectedEventDetail?.market ?? 'Unknown'}</div></div>
-                  <div><div style={{ color: '#6b7280' }}>Linkage status</div><div style={{ fontWeight: 700 }}>{String(selectedEventDetail?.metadata?.linkage_status ?? 'pending')}</div></div>
-                  <div><div style={{ color: '#6b7280' }}>Linkage confidence</div><div style={{ fontWeight: 700 }}>{String(selectedEventDetail?.metadata?.linkage_confidence ?? 'unknown')}</div></div>
-                  <div><div style={{ color: '#6b7280' }}>Linkage strategy</div><div style={{ fontWeight: 700 }}>{String(selectedEventDetail?.metadata?.linkage_strategy ?? 'unknown')}</div></div>
-                  <div><div style={{ color: '#6b7280' }}>Primary brand</div><div style={{ fontWeight: 700 }}>{prettyBrand(selectedEventDetail?.primary_brand)}</div></div>
-                  <div><div style={{ color: '#6b7280' }}>Confidence</div><div style={{ fontWeight: 700 }}>{selectedEventDetail?.confidence_score ?? 0}</div></div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
-                  {selectedEventDetail?.metadata?.linkage_status ? <Badge label={`linkage ${String(selectedEventDetail.metadata.linkage_status)}`} tone={linkageTone(String(selectedEventDetail.metadata.linkage_status))} /> : null}
-                  {selectedEventDetail?.metadata?.linkage_confidence ? <Badge label={`confidence ${String(selectedEventDetail.metadata.linkage_confidence)}`} tone={linkageTone(String(selectedEventDetail.metadata.linkage_confidence))} /> : null}
-                </div>
-                <div style={{ marginTop: '1rem', color: '#4b5563', fontSize: '0.84rem', lineHeight: 1.6 }}>{selectedEventDetail?.summary ?? selectedEvent?.summary}</div>
-              </ShellCard>
-              <div style={{ display: 'grid', gap: '0.8rem' }}>
-                <ShellCard>
-                  <strong style={{ display: 'block', marginBottom: '0.55rem' }}>Cross-brand opportunity</strong>
-                  {Object.entries(BRAND_META).filter(([key]) => key !== 'all').map(([key, meta]) => (
-                    <div key={key} style={{ marginBottom: '0.55rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}><span>{meta.label}</span><strong>{selectedEvent?.primary_brand === key ? 'active lead' : 'monitor'}</strong></div>
-                      <div style={{ height: 5, background: '#eef2f7', borderRadius: 999, marginTop: 4 }}><div style={{ width: `${selectedEvent?.primary_brand === key ? 82 : 38}%`, height: '100%', background: meta.color, borderRadius: 999 }} /></div>
-                    </div>
-                  ))}
-                </ShellCard>
-                {renderPaperclipPanel()}
-              </div>
-            </div>
-          </div>
+          <AccountWorkspace
+            properties={properties}
+            selectedProperty={selectedProperty}
+            currentBrand={filters.brand}
+            currentAccount={filters.account}
+            currentSearch={filters.accountSearch}
+            currentSort={filters.accountSort ?? 'score_desc'}
+          />
         );
       case 'contacts':
         return (
