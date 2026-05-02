@@ -534,6 +534,7 @@ async function getProperties(opts: { brand?: string; search?: string; sort?: str
   const params = new URLSearchParams();
   if (opts.brand && opts.brand !== 'all') params.set('brand', opts.brand);
   if (opts.search) params.set('search', opts.search);
+  if (opts.sort) params.set('sort', opts.sort);
   try {
     const resp = await fetch(`${baseUrl}/properties?${params}`, { cache: 'no-store' });
     if (!resp.ok) return [];
