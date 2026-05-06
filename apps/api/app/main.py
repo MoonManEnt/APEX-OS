@@ -121,6 +121,7 @@ async def list_events(
     market: Optional[str] = Query(default=None),
     event_type: Optional[str] = Query(default=None),
     min_score: Optional[int] = Query(default=None, ge=0, le=100),
+    since: Optional[str] = Query(default=None),
     session: AsyncSession = Depends(get_db_session),
 ) -> EventListResponse:
     filters = EventFilters(
@@ -135,6 +136,7 @@ async def list_events(
         market=filters.market,
         event_type=filters.event_type,
         min_score=filters.min_score,
+        since=since,
     )
     return EventListResponse(events=events)
 

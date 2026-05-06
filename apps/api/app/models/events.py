@@ -27,6 +27,7 @@ class EventListItem(BaseModel):
     latest_draft_type: Optional[str] = None
     latest_draft_status: Optional[str] = None
     latest_draft_updated_at: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 class EventDetail(EventListItem):
