@@ -22,6 +22,8 @@ export function LiveFeedStatus({ latestEventTs, currentBrand }: Props) {
   const [lastMessage, setLastMessage] = useState<FeedMessage | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const lastSeenTs = useRef<string | null>(latestEventTs);
+  const currentBrandRef = useRef(currentBrand);
+  useEffect(() => { currentBrandRef.current = currentBrand; }, [currentBrand]);
 
   // Sync prop → ref after each router.refresh()
   useEffect(() => {
@@ -32,16 +34,6 @@ export function LiveFeedStatus({ latestEventTs, currentBrand }: Props) {
     const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
     return apiBase.replace(/^http/, 'ws') + '/ws';
   }, []);
-
-  const matchesBrand = (brand: string | null | undefined): boolean => {
-    if (!currentBrand || currentBrand === 'all') return true;
-    return brand === currentBrand;
-  };
-
-  const matchesBrands = (brands: string[] | undefined): boolean => {
-    if (!currentBrand || currentBrand === 'all') return true;
-    return (brands ?? []).includes(currentBrand);
-  };
 
   // Auto-refresh when pendingCount is 1 or 2
   useEffect(() => {
@@ -67,7 +59,9 @@ export function LiveFeedStatus({ latestEventTs, currentBrand }: Props) {
         const data = await resp.json() as { events?: unknown[] };
         const events = Array.isArray(data.events) ? data.events : [];
         if (events.length > 0) setPendingCount((c) => c + events.length);
-      } catch { /* swallow */ }
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') console.warn('[LiveFeedStatus]', e);
+      }
     };
     const interval = setInterval(poll, 15000);
     return () => clearInterval(interval);
@@ -90,7 +84,9 @@ export function LiveFeedStatus({ latestEventTs, currentBrand }: Props) {
         const data = await resp.json() as { events?: unknown[] };
         const missed = Array.isArray(data.events) ? data.events.length : 0;
         if (missed > 0) setPendingCount((c) => c + missed);
-      } catch { /* swallow */ }
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') console.warn('[LiveFeedStatus]', e);
+      }
     };
 
     const connect = () => {
@@ -108,16 +104,19 @@ export function LiveFeedStatus({ latestEventTs, currentBrand }: Props) {
         try {
           const message = JSON.parse(event.data) as FeedMessage;
           setLastMessage(message);
+          const brand = currentBrandRef.current;
           if (message.type === 'feed.seeded') {
-            if (matchesBrand(message.primaryBrand)) {
+            if (!brand || brand === 'all' || message.primaryBrand === brand) {
               setPendingCount((c) => c + 1);
             }
           } else if (message.type === 'feed.ingested') {
-            if (matchesBrands(message.primaryBrands)) {
+            if (!brand || brand === 'all' || (message.primaryBrands ?? []).includes(brand)) {
               setPendingCount((c) => c + (message.count ?? 1));
             }
           }
-        } catch { /* ignore malformed payloads */ }
+        } catch (e) {
+          if (process.env.NODE_ENV !== 'production') console.warn('[LiveFeedStatus]', e);
+        }
       };
 
       socket.onclose = () => {
@@ -139,7 +138,7 @@ export function LiveFeedStatus({ latestEventTs, currentBrand }: Props) {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, [wsUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wsUrl]);
 
   const tone = status === 'live' ? '#166534' : status === 'connecting' || status === 'reconnecting' ? '#92400e' : '#991b1b';
   const bg = status === 'live' ? '#dcfce7' : status === 'connecting' || status === 'reconnecting' ? '#fef3c7' : '#fee2e2';
@@ -159,7 +158,7 @@ export function LiveFeedStatus({ latestEventTs, currentBrand }: Props) {
               onClick={() => { router.refresh(); setPendingCount(0); }}
               style={{ border: '1px solid #185FA5', background: '#eff6ff', color: '#185FA5', borderRadius: 10, padding: '0.45rem 0.7rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem' }}
             >
-              {pendingCount} new {pendingCount === 1 ? 'item' : 'items'} — load
+              {pendingCount} new items — load
             </button>
           )}
           <button
