@@ -174,7 +174,7 @@ async def bootstrap_sample_event(session: AsyncSession = Depends(get_db_session)
             'source': 'manual.seed',
         },
     )
-    await feed_manager.broadcast({'type': 'feed.seeded', 'eventId': seeded['event_id']})
+    await feed_manager.broadcast({'type': 'feed.seeded', 'eventId': seeded['event_id'], 'primaryBrand': seeded.get('classification', {}).get('primary_brand')})
     return seeded
 
 
@@ -196,7 +196,12 @@ async def ingest_google_news(
             'event_ids': [item.get('event_id') for item in result.get('events', [])],
         },
     )
-    await feed_manager.broadcast({'type': 'feed.ingested', 'count': result['count']})
+    ingested_brands = list({
+        item.get('primary_brand')
+        for item in result.get('events', [])
+        if item.get('primary_brand')
+    })
+    await feed_manager.broadcast({'type': 'feed.ingested', 'count': result['count'], 'primaryBrands': ingested_brands})
     return result
 
 
