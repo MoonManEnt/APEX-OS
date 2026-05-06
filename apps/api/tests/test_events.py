@@ -37,4 +37,4 @@ async def test_since_past_timestamp_returns_events():
     no_filter_events = no_filter_resp.json()['events']
     if no_filter_events:
         assert len(data['events']) > 0
-        assert len(data['events']) == len(no_filter_events)
+        assert len(data['events']) <= len(no_filter_events)

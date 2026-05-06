@@ -127,8 +127,7 @@ async def list_events(
 ) -> EventListResponse:
     if since is not None:
         try:
-            since = since.replace('Z', '+00:00')
-            datetime.fromisoformat(since)
+            datetime.fromisoformat(since.replace('Z', '+00:00'))
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid since timestamp")
     filters = EventFilters(
