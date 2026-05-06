@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import text
@@ -114,6 +115,11 @@ async def list_events(
     min_score: Optional[int] = None,
     since: Optional[str] = None,
 ) -> list[EventListItem]:
+    since_dt: Optional[datetime] = None
+    if since is not None:
+        since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
+        if since_dt.tzinfo is None:
+            since_dt = since_dt.replace(tzinfo=timezone.utc)
     result = await session.execute(
         LIST_EVENTS_SQL,
         {
@@ -121,7 +127,7 @@ async def list_events(
             'market': market,
             'event_type': event_type,
             'min_score': min_score,
-            'since': since,
+            'since': since_dt,
         },
     )
     rows = result.mappings().all()
