@@ -8,6 +8,7 @@ class EventFilters(BaseModel):
     market: Optional[str] = None
     event_type: Optional[str] = None
     min_score: Optional[int] = None
+    since: Optional[str] = None
 
 
 class EventListItem(BaseModel):

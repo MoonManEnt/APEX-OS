@@ -7,6 +7,7 @@
 # TODO(WS-2): Add WebSocket /ws endpoint for feed.publish push
 
 import os
+from datetime import datetime
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -124,11 +125,17 @@ async def list_events(
     since: Optional[str] = Query(default=None),
     session: AsyncSession = Depends(get_db_session),
 ) -> EventListResponse:
+    if since is not None:
+        try:
+            datetime.fromisoformat(since.replace('Z', '+00:00'))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid since timestamp")
     filters = EventFilters(
         brand=brand,
         market=market,
         event_type=event_type,
         min_score=min_score,
+        since=since,
     )
     events = await list_events_repository(
         session,
@@ -136,7 +143,7 @@ async def list_events(
         market=filters.market,
         event_type=filters.event_type,
         min_score=filters.min_score,
-        since=since,
+        since=filters.since,
     )
     return EventListResponse(events=events)
 
