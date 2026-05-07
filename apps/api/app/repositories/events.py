@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import text
@@ -60,13 +61,15 @@ LIST_EVENTS_SQL = text(
       event_at,
       latest_draft_type,
       latest_draft_status,
-      latest_draft_updated_at
+      latest_draft_updated_at,
+      created_at::text as created_at
     from ranked
     where dedupe_rank = 1
       and (cast(:brand as text) is null or primary_brand::text = cast(:brand as text) or cast(:brand as text) = any(cast(brand_relevance as text[])))
       and (cast(:market as text) is null or market = cast(:market as text))
       and (cast(:event_type as text) is null or event_type::text = cast(:event_type as text))
       and (cast(:min_score as integer) is null or relevance_score >= cast(:min_score as integer))
+      and (cast(:since as timestamptz) is null or created_at > cast(:since as timestamptz))
     order by created_at desc
     limit 100
     """
@@ -110,7 +113,13 @@ async def list_events(
     market: Optional[str] = None,
     event_type: Optional[str] = None,
     min_score: Optional[int] = None,
+    since: Optional[str] = None,
 ) -> list[EventListItem]:
+    since_dt: Optional[datetime] = None
+    if since is not None:
+        since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
+        if since_dt.tzinfo is None:
+            since_dt = since_dt.replace(tzinfo=timezone.utc)
     result = await session.execute(
         LIST_EVENTS_SQL,
         {
@@ -118,6 +127,7 @@ async def list_events(
             'market': market,
             'event_type': event_type,
             'min_score': min_score,
+            'since': since_dt,
         },
     )
     rows = result.mappings().all()

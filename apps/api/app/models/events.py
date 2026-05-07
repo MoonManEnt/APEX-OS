@@ -8,6 +8,7 @@ class EventFilters(BaseModel):
     market: Optional[str] = None
     event_type: Optional[str] = None
     min_score: Optional[int] = None
+    since: Optional[str] = None
 
 
 class EventListItem(BaseModel):
@@ -27,6 +28,7 @@ class EventListItem(BaseModel):
     latest_draft_type: Optional[str] = None
     latest_draft_status: Optional[str] = None
     latest_draft_updated_at: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 class EventDetail(EventListItem):

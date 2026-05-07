@@ -7,6 +7,7 @@
 # TODO(WS-2): Add WebSocket /ws endpoint for feed.publish push
 
 import os
+from datetime import datetime
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -121,13 +122,20 @@ async def list_events(
     market: Optional[str] = Query(default=None),
     event_type: Optional[str] = Query(default=None),
     min_score: Optional[int] = Query(default=None, ge=0, le=100),
+    since: Optional[str] = Query(default=None),
     session: AsyncSession = Depends(get_db_session),
 ) -> EventListResponse:
+    if since is not None:
+        try:
+            datetime.fromisoformat(since.replace('Z', '+00:00'))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid since timestamp")
     filters = EventFilters(
         brand=brand,
         market=market,
         event_type=event_type,
         min_score=min_score,
+        since=since,
     )
     events = await list_events_repository(
         session,
@@ -135,6 +143,7 @@ async def list_events(
         market=filters.market,
         event_type=filters.event_type,
         min_score=filters.min_score,
+        since=filters.since,
     )
     return EventListResponse(events=events)
 
@@ -164,7 +173,7 @@ async def bootstrap_sample_event(session: AsyncSession = Depends(get_db_session)
             'source': 'manual.seed',
         },
     )
-    await feed_manager.broadcast({'type': 'feed.seeded', 'eventId': seeded['event_id']})
+    await feed_manager.broadcast({'type': 'feed.seeded', 'eventId': seeded['event_id'], 'primaryBrand': seeded.get('classification', {}).get('primary_brand')})
     return seeded
 
 
@@ -186,7 +195,12 @@ async def ingest_google_news(
             'event_ids': [item.get('event_id') for item in result.get('events', [])],
         },
     )
-    await feed_manager.broadcast({'type': 'feed.ingested', 'count': result['count']})
+    ingested_brands = list({
+        item.get('primary_brand')
+        for item in result.get('events', [])
+        if item.get('primary_brand')
+    })
+    await feed_manager.broadcast({'type': 'feed.ingested', 'count': result['count'], 'primaryBrands': ingested_brands})
     return result
 
 

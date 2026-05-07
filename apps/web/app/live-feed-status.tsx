@@ -1,28 +1,93 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 type FeedMessage = {
   type?: string;
   count?: number;
   eventId?: string;
+  primaryBrand?: string | null;
+  primaryBrands?: string[];
 };
 
-export function LiveFeedStatus() {
+type Props = {
+  latestEventTs: string | null;
+  currentBrand?: string;
+};
+
+export function LiveFeedStatus({ latestEventTs, currentBrand }: Props) {
   const router = useRouter();
   const [status, setStatus] = useState<'connecting' | 'live' | 'reconnecting' | 'offline'>('connecting');
   const [lastMessage, setLastMessage] = useState<FeedMessage | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const lastSeenTs = useRef<string | null>(latestEventTs);
+  const currentBrandRef = useRef(currentBrand);
+  useEffect(() => { currentBrandRef.current = currentBrand; }, [currentBrand]);
+
+  // Sync prop → ref after each router.refresh()
+  useEffect(() => {
+    if (latestEventTs) lastSeenTs.current = latestEventTs;
+  }, [latestEventTs]);
 
   const wsUrl = useMemo(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
     return apiBase.replace(/^http/, 'ws') + '/ws';
   }, []);
 
+  // Auto-refresh when pendingCount is 1 or 2
+  useEffect(() => {
+    if (pendingCount === 0 || pendingCount > 2) return;
+    const timer = setTimeout(() => {
+      router.refresh();
+      setPendingCount(0);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [pendingCount, router]);
+
+  // Polling fallback when offline
+  useEffect(() => {
+    if (status !== 'offline') return;
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+    const poll = async () => {
+      try {
+        const url = lastSeenTs.current
+          ? `${apiBase}/events?since=${encodeURIComponent(lastSeenTs.current)}`
+          : `${apiBase}/events`;
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (!resp.ok) return;
+        const data = await resp.json() as { events?: unknown[] };
+        const events = Array.isArray(data.events) ? data.events : [];
+        if (events.length > 0) setPendingCount((c) => c + events.length);
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') console.warn('[LiveFeedStatus]', e);
+      }
+    };
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
+  }, [status]);
+
   useEffect(() => {
     let active = true;
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+
+    const catchUp = async () => {
+      if (!lastSeenTs.current) return;
+      try {
+        const resp = await fetch(
+          `${apiBase}/events?since=${encodeURIComponent(lastSeenTs.current)}`,
+          { cache: 'no-store' }
+        );
+        if (!resp.ok) return;
+        const data = await resp.json() as { events?: unknown[] };
+        const missed = Array.isArray(data.events) ? data.events.length : 0;
+        if (missed > 0) setPendingCount((c) => c + missed);
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') console.warn('[LiveFeedStatus]', e);
+      }
+    };
 
     const connect = () => {
       setStatus((current) => (current === 'live' ? 'reconnecting' : 'connecting'));
@@ -31,6 +96,7 @@ export function LiveFeedStatus() {
       socket.onopen = () => {
         if (!active) return;
         setStatus('live');
+        catchUp();
       };
 
       socket.onmessage = (event) => {
@@ -38,11 +104,18 @@ export function LiveFeedStatus() {
         try {
           const message = JSON.parse(event.data) as FeedMessage;
           setLastMessage(message);
-          if (message.type === 'feed.ingested' || message.type === 'feed.seeded') {
-            router.refresh();
+          const brand = currentBrandRef.current;
+          if (message.type === 'feed.seeded') {
+            if (!brand || brand === 'all' || message.primaryBrand === brand) {
+              setPendingCount((c) => c + 1);
+            }
+          } else if (message.type === 'feed.ingested') {
+            if (!brand || brand === 'all' || (message.primaryBrands ?? []).includes(brand)) {
+              setPendingCount((c) => c + (message.count ?? 1));
+            }
           }
-        } catch {
-          // Ignore malformed payloads in beta.
+        } catch (e) {
+          if (process.env.NODE_ENV !== 'production') console.warn('[LiveFeedStatus]', e);
         }
       };
 
@@ -65,11 +138,11 @@ export function LiveFeedStatus() {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, [router, wsUrl]);
+  }, [wsUrl]);
 
   const tone = status === 'live' ? '#166534' : status === 'connecting' || status === 'reconnecting' ? '#92400e' : '#991b1b';
   const bg = status === 'live' ? '#dcfce7' : status === 'connecting' || status === 'reconnecting' ? '#fef3c7' : '#fee2e2';
-  const label = status === 'live' ? 'Live feed connected' : status === 'reconnecting' ? 'Reconnecting feed' : status === 'connecting' ? 'Connecting feed' : 'Feed offline';
+  const label = status === 'live' ? 'Live feed connected' : status === 'reconnecting' ? 'Reconnecting feed' : status === 'connecting' ? 'Connecting feed' : 'Feed offline — polling';
 
   return (
     <div style={{ marginTop: '0.75rem', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.85rem', background: '#fff' }}>
@@ -78,13 +151,24 @@ export function LiveFeedStatus() {
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: tone, display: 'inline-block' }} />
           {label}
         </span>
-        <button
-          type="button"
-          onClick={() => router.refresh()}
-          style={{ border: '1px solid #d1d5db', background: '#fff', color: '#111827', borderRadius: 10, padding: '0.45rem 0.7rem', cursor: 'pointer', fontWeight: 600 }}
-        >
-          Refresh newsroom
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {pendingCount > 2 && (
+            <button
+              type="button"
+              onClick={() => { router.refresh(); setPendingCount(0); }}
+              style={{ border: '1px solid #185FA5', background: '#eff6ff', color: '#185FA5', borderRadius: 10, padding: '0.45rem 0.7rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem' }}
+            >
+              {pendingCount} new items — load
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => { router.refresh(); setPendingCount(0); }}
+            style={{ border: '1px solid #d1d5db', background: '#fff', color: '#111827', borderRadius: 10, padding: '0.45rem 0.7rem', cursor: 'pointer', fontWeight: 600 }}
+          >
+            Refresh newsroom
+          </button>
+        </div>
       </div>
       <div style={{ marginTop: '0.6rem', color: '#6b7280', fontSize: '0.82rem' }}>
         {lastMessage?.type ? `Last feed event: ${lastMessage.type}${lastMessage.count ? ` · ${lastMessage.count} ingested` : ''}${lastMessage.eventId ? ` · ${lastMessage.eventId}` : ''}` : 'Waiting for feed activity.'}

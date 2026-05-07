@@ -16,6 +16,7 @@ type EventItem = {
   latest_draft_type?: string | null;
   latest_draft_status?: string | null;
   latest_draft_updated_at?: string | null;
+  created_at?: string;
 };
 
 type EventDetail = EventItem & {
@@ -1011,7 +1012,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 </ShellCard>
               ))}
             </div>
-            <LiveFeedStatus />
+            <LiveFeedStatus latestEventTs={events[0]?.created_at ?? null} currentBrand={filters.brand} />
             <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 0.95fr', gap: '0.8rem' }}>
               <ShellCard>
                 <strong style={{ display: 'block', marginBottom: '0.65rem' }}>Operator queue</strong>
@@ -1093,7 +1094,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <div style={{ display: 'grid', gap: '1rem' }}>
             <SectionHeader title="Newsroom" subtitle="Real-time CRE intelligence across all sources. The unified shell now matches the APEX framing direction." actions={<Badge label="Streaming" tone="green" />} />
             <PwaInstallCta />
-            <LiveFeedStatus />
+            <LiveFeedStatus latestEventTs={events[0]?.created_at ?? null} currentBrand={filters.brand} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1rem' }}>
               <div>{renderNewsroomFeed()}</div>
               <div style={{ display: 'grid', gap: '0.8rem' }}>
