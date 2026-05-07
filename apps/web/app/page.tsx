@@ -2,6 +2,7 @@ import { AccountAddForm } from './account-add-form';
 import { AccountWorkspace, type PropertyDetail, type PropertyItem } from './account-workspace';
 import { EventModal } from './event-modal';
 import { LiveFeedStatus } from './live-feed-status';
+import { PendingProposals } from './pending-proposals';
 import { PwaInstallCta } from './pwa-install-cta';
 
 type EventItem = {
@@ -1064,6 +1065,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               ))}
             </div>
             <LiveFeedStatus latestEventTs={events[0]?.created_at ?? null} currentBrand={filters.brand} />
+            <PendingProposals />
             <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 0.95fr', gap: '0.8rem' }}>
               <ShellCard>
                 <strong style={{ display: 'block', marginBottom: '0.65rem' }}>Operator queue</strong>
@@ -1146,6 +1148,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             <SectionHeader title="Newsroom" subtitle="Real-time CRE intelligence across all sources. The unified shell now matches the APEX framing direction." actions={<Badge label="Streaming" tone="green" />} />
             <PwaInstallCta />
             <LiveFeedStatus latestEventTs={events[0]?.created_at ?? null} currentBrand={filters.brand} />
+            <PendingProposals />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '1rem' }}>
               <div>{renderNewsroomFeed()}</div>
               <div style={{ display: 'grid', gap: '0.8rem' }}>
