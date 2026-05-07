@@ -33,6 +33,16 @@ from app.repositories.actions import get_action_review_queue as get_action_revie
 from app.repositories.actions import persist_action_draft
 from app.repositories.events import get_event as get_event_repository
 from app.repositories.events import list_events as list_events_repository
+from app.repositories.proposals import get_proposal as get_proposal_repository
+from app.mcp.proposals import (
+    ProposalAlreadyResolvedError,
+    ProposalNotFoundError,
+    approve_proposal as approve_proposal_service,
+    list_proposals_view,
+    reject_proposal as reject_proposal_service,
+)
+from app.mcp.tools.proposals import _executor_for_session
+from app.models.proposals import ApprovalSource, ProposalStatus
 from app.repositories.properties import (
     check_duplicate as check_property_duplicate,
     create_property as create_property_repository,
@@ -572,3 +582,82 @@ async def delete_property(
         raise HTTPException(status_code=404, detail='Property not found')
     if result == 'auto':
         raise HTTPException(status_code=403, detail='Cannot delete auto-created property')
+
+
+@app.get('/proposals')
+async def list_proposals_route(
+    status: Optional[str] = Query(default=None),
+    agent_id: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    status_enum = ProposalStatus(status) if status else None
+    proposals = await list_proposals_view(
+        session, status=status_enum, agent_id=agent_id, limit=limit
+    )
+    return {'proposals': [p.model_dump() for p in proposals]}
+
+
+@app.get('/proposals/{proposal_id}')
+async def get_proposal_route(
+    proposal_id: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    p = await get_proposal_repository(session, proposal_id)
+    if p is None:
+        raise HTTPException(status_code=404, detail='proposal not found')
+    return p.model_dump()
+
+
+@app.post('/proposals/{proposal_id}/approve')
+async def approve_proposal_route(
+    proposal_id: str,
+    payload: dict | None = None,
+    operator: OperatorSession = Depends(get_operator_session),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    note = (payload or {}).get('approver_note')
+    try:
+        approved = await approve_proposal_service(
+            session,
+            proposal_id=proposal_id,
+            approver_id=operator.operator_id,
+            source=ApprovalSource.UI,
+            approver_note=note,
+            executor=_executor_for_session(session),
+        )
+    except ProposalNotFoundError:
+        raise HTTPException(status_code=404, detail='proposal not found')
+    except ProposalAlreadyResolvedError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={'error': 'already_resolved', 'current_status': e.current_status.value},
+        )
+    return approved.model_dump()
+
+
+@app.post('/proposals/{proposal_id}/reject')
+async def reject_proposal_route(
+    proposal_id: str,
+    payload: dict,
+    operator: OperatorSession = Depends(get_operator_session),
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    reason = payload.get('reason')
+    if not reason:
+        raise HTTPException(status_code=400, detail='reason is required')
+    try:
+        rejected = await reject_proposal_service(
+            session,
+            proposal_id=proposal_id,
+            approver_id=operator.operator_id,
+            reason=reason,
+        )
+    except ProposalNotFoundError:
+        raise HTTPException(status_code=404, detail='proposal not found')
+    except ProposalAlreadyResolvedError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={'error': 'already_resolved', 'current_status': e.current_status.value},
+        )
+    return rejected.model_dump()
