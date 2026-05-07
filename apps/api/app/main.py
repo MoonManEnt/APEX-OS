@@ -42,6 +42,7 @@ from app.mcp.proposals import (
     reject_proposal as reject_proposal_service,
 )
 from app.mcp.tools.proposals import _executor_for_session
+from app.mcp.transport_http import router as mcp_router
 from app.models.proposals import ApprovalSource, ProposalStatus
 from app.repositories.properties import (
     check_duplicate as check_property_duplicate,
@@ -79,6 +80,8 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
+
+app.include_router(mcp_router)
 
 DRAFT_TRANSITIONS: dict[Optional[str], set[str]] = {
     None: {'edited', 'awaiting_review'},

@@ -19,6 +19,7 @@ dependencies = [
     "openai>=1.30",
     "pydantic-settings>=2.3",
     "mcp>=1.2",
+    "sse-starlette>=2.1",
 ]
 
 [project.optional-dependencies]
