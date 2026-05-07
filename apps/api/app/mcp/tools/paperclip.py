@@ -117,7 +117,13 @@ async def _get_task(ctx: dict, params: dict) -> Any:
     return {'error': 'not_found', 'task_id': params['task_id']}
 
 
-from app.mcp.proposals import create_proposal
+from app.mcp.proposals import (
+    approve_proposal as svc_approve,
+    create_proposal,
+)
+from app.mcp.sentry import is_sentry_active
+from app.mcp.tools.proposals import _executor_for_session
+from app.models.proposals import ApprovalSource
 
 
 async def _propose_task_create(ctx: dict, params: dict):
@@ -147,6 +153,15 @@ async def _record(ctx: dict, params: dict, *, tool_name: str, summary: str):
         summary=summary,
         request_id=params.get('request_id'),
     )
+    if is_sentry_active(tool_name):
+        approved = await svc_approve(
+            ctx['session'],
+            proposal_id=result.proposal.id,
+            approver_id=ctx['operator_id'],
+            source=ApprovalSource.SENTRY,
+            executor=_executor_for_session(ctx['session']),
+        )
+        return {**approved.model_dump(), 'sentry_executed': True}
     return {
         'proposal_id': result.proposal.id,
         'expires_at': result.proposal.expires_at,

@@ -4,6 +4,7 @@ from app.mcp.tools import (
     drafts as drafts_tools,
     events as events_tools,
     paperclip as paperclip_tools,
+    proposals as proposals_tools,
     session as session_tools,
 )
 
@@ -14,6 +15,7 @@ def build_registry() -> Registry:
     accounts_tools.register(registry)
     drafts_tools.register(registry)
     paperclip_tools.register(registry)
+    proposals_tools.register(registry)
     session_tools.register(registry)
     return registry
 

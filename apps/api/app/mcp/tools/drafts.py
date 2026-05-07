@@ -119,7 +119,13 @@ async def _list_review_queue(ctx: dict, params: dict) -> Any:
     return {'items': [item.model_dump() for item in queue.items]}
 
 
-from app.mcp.proposals import create_proposal
+from app.mcp.proposals import (
+    approve_proposal as svc_approve,
+    create_proposal,
+)
+from app.mcp.sentry import is_sentry_active
+from app.mcp.tools.proposals import _executor_for_session
+from app.models.proposals import ApprovalSource
 
 
 def _summary_for_draft(verb: str, params: dict) -> str:
@@ -128,8 +134,6 @@ def _summary_for_draft(verb: str, params: dict) -> str:
 
 
 async def _propose_write(ctx: dict, params: dict, *, tool_name: str, summary: str) -> dict:
-    # Note: this handler always queues a proposal. Sentry-mode auto-execution
-    # is layered on in Task 9 once the executor router exists.
     result = await create_proposal(
         ctx['session'],
         agent_id=ctx['agent_id'],
@@ -140,6 +144,15 @@ async def _propose_write(ctx: dict, params: dict, *, tool_name: str, summary: st
         summary=summary,
         request_id=params.get('request_id'),
     )
+    if is_sentry_active(tool_name):
+        approved = await svc_approve(
+            ctx['session'],
+            proposal_id=result.proposal.id,
+            approver_id=ctx['operator_id'],
+            source=ApprovalSource.SENTRY,
+            executor=_executor_for_session(ctx['session']),
+        )
+        return {**approved.model_dump(), 'sentry_executed': True}
     return {
         'proposal_id': result.proposal.id,
         'expires_at': result.proposal.expires_at,
