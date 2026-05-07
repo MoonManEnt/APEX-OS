@@ -19,3 +19,10 @@ class FeedConnectionManager:
 
 
 feed_manager = FeedConnectionManager()
+
+
+# WebSocket message-type constants used by other services for broadcasting.
+MSG_FEED_SEEDED = 'feed.seeded'
+MSG_FEED_INGESTED = 'feed.ingested'
+MSG_PROPOSAL_CREATED = 'proposal.created'
+MSG_PROPOSAL_RESOLVED = 'proposal.resolved'
