@@ -1,0 +1,68 @@
+from typing import Any, Optional
+
+from app.mcp.registry import Registry, ToolDefinition
+from app.services.paperclip_tasks import (
+    list_paperclip_lanes as svc_list_lanes,
+    list_tasks as svc_list_tasks,
+)
+
+
+def register(registry: Registry) -> None:
+    registry.register_tool(
+        ToolDefinition(
+            name='list_paperclip_lanes',
+            description='List configured paperclip lanes.',
+            input_schema={'type': 'object', 'properties': {}},
+        ),
+        _list_lanes,
+    )
+    registry.register_tool(
+        ToolDefinition(
+            name='list_paperclip_tasks',
+            description='List paperclip tasks, optionally filtered by event_id and status.',
+            input_schema={
+                'type': 'object',
+                'properties': {
+                    'event_id': {'type': 'string'},
+                    'status': {'type': 'string'},
+                },
+            },
+        ),
+        _list_tasks,
+    )
+    registry.register_tool(
+        ToolDefinition(
+            name='get_paperclip_task',
+            description='Fetch a single paperclip task by id.',
+            input_schema={
+                'type': 'object',
+                'properties': {'task_id': {'type': 'string'}},
+                'required': ['task_id'],
+            },
+        ),
+        _get_task,
+    )
+
+
+async def _list_lanes(ctx: dict, params: dict) -> Any:
+    lanes = svc_list_lanes()
+    return {'lanes': lanes}
+
+
+async def _list_tasks(ctx: dict, params: dict) -> Any:
+    response = svc_list_tasks(event_id=params.get('event_id'))
+    items = response.items if hasattr(response, 'items') else []
+    status_filter = params.get('status')
+    if status_filter:
+        items = [t for t in items if getattr(t, 'status', None) == status_filter]
+    return {'tasks': [t.model_dump() if hasattr(t, 'model_dump') else t for t in items]}
+
+
+async def _get_task(ctx: dict, params: dict) -> Any:
+    response = svc_list_tasks()
+    items = response.items if hasattr(response, 'items') else []
+    for t in items:
+        tid = t.id if hasattr(t, 'id') else t.get('id')
+        if tid == params['task_id']:
+            return t.model_dump() if hasattr(t, 'model_dump') else t
+    return {'error': 'not_found', 'task_id': params['task_id']}
